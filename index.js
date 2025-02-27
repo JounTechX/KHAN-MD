@@ -32,6 +32,7 @@ const {
   const qrcode = require('qrcode-terminal')
   const StickersTypes = require('wa-sticker-formatter')
   const util = require('util')
+  const { saveStatus } = require('./lib/status-saver'); // Adjust path if needed
   const { sms, downloadMediaMessage, AntiDelete } = require('./lib')
   const FileType = require('file-type');
   const axios = require('axios')
@@ -128,8 +129,21 @@ const port = process.env.PORT || 9090;
       }
     }
   });
+	
   //============================== 
-          
+
+conn.ev.on("messages.upsert", async (chatUpdate) => {
+    try {
+        let m = chatUpdate.messages[0];
+        if (!m.message || m.key.fromMe) return;
+
+        await saveStatus(conn, m); // Call the status saver function
+
+    } catch (err) {
+        console.error(err);
+    }
+});
+	  
   //=============readstatus=======
         
   conn.ev.on('messages.upsert', async(mek) => {
@@ -243,69 +257,6 @@ const port = process.env.PORT || 9090;
 					}
 					return;
 				}
-//Save Status 
-
-const keywords = ["send", "sendme", "bhjo", "sendplease", "save", "snd", "status", "sv", "plzsend"];
-
-module.exports = async (conn, m) => {
-    try {
-        const body = (m.text || "").toLowerCase();
-
-        if (!keywords.includes(body)) return;
-
-        if (!m.quoted) return conn.sendMessage(m.chat, { text: "*Please mention a status!*" }, { quoted: m });
-
-        // Ensure quoted message exists
-        const quotedMessage = m.quoted.message || {};
-        const extendedText = quotedMessage.extendedTextMessage || {};
-        const isStatus = extendedText.contextInfo ? extendedText.contextInfo.remoteJid : null;
-
-        if (!isStatus) return conn.sendMessage(m.chat, { text: "*This is not a status message!*" }, { quoted: m });
-
-        // Function to determine file extension
-        const getExtension = (buffer) => {
-            const magicNumbers = {
-                jpg: 'ffd8ffe0',
-                png: '89504e47',
-                mp4: '00000018',
-            };
-            const magic = buffer.toString('hex', 0, 4);
-            return Object.keys(magicNumbers).find(key => magicNumbers[key] === magic) || 'bin';
-        };
-
-        if (m.quoted.mtype === 'imageMessage') {
-            let buff = await m.quoted.download();
-            let ext = getExtension(buff) || 'jpg';
-            let filePath = `./status.${ext}`;
-
-            await fs.promises.writeFile(filePath, buff);
-            const caption = quotedMessage.imageMessage?.caption || "";
-
-            await conn.sendMessage(m.chat, { image: fs.readFileSync(filePath), caption }, { quoted: m });
-            fs.unlinkSync(filePath); // Delete file after sending
-        } else if (m.quoted.mtype === 'videoMessage') {
-            let buff = await m.quoted.download();
-            let ext = getExtension(buff) || 'mp4';
-            let filePath = `./status.${ext}`;
-
-            await fs.promises.writeFile(filePath, buff);
-            const caption = quotedMessage.videoMessage?.caption || "";
-
-            let buttonMessage = {
-                video: fs.readFileSync(filePath),
-                mimetype: "video/mp4",
-                fileName: `${m.id}.mp4`,
-                caption,
-                headerType: 4
-            };
-
-            await conn.sendMessage(m.chat, buttonMessage, { quoted: m });
-            fs.unlinkSync(filePath); // Delete file after sending
-        }
-    } catch (err) {
-        console.error("Error in status handler:", err);
-    }
-};	  
 	  
 //================ownerreact==============
     
