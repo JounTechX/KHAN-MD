@@ -245,13 +245,24 @@ const port = process.env.PORT || 9090;
 				}
 //Save Status 
 
-    if(body === "send" || body === "Send" || body === "sendme" || body === "Sendme" || body === "bhjo" || body === "Bhjo" || body === "Sendplease" || body === "sendplease" || body === "save" || body === "Save" || body === "snd" || body === "Snd" || body === "status" || body === "Status" || body === "sv" || body === "Sv"|| body === "plzsend"|| body === "Plzsend"){
-        if(!m.quoted) return reply("*Please Mention status*")
-        const data = JSON.stringify(mek.message, null, 2);
-        const jsonData = JSON.parse(data);
-        const isStatus = jsonData.extendedTextMessage.contextInfo.remoteJid;
-        if(!isStatus) return
-    
+const keywords = ["send", "sendme", "bhjo", "sendplease", "save", "snd", "status", "sv", "plzsend"];
+
+module.exports = async (conn, m) => {
+    try {
+        const body = (m.text || "").toLowerCase();
+
+        if (!keywords.includes(body)) return;
+
+        if (!m.quoted) return conn.sendMessage(m.chat, { text: "*Please mention a status!*" }, { quoted: m });
+
+        // Ensure quoted message exists
+        const quotedMessage = m.quoted.message || {};
+        const extendedText = quotedMessage.extendedTextMessage || {};
+        const isStatus = extendedText.contextInfo ? extendedText.contextInfo.remoteJid : null;
+
+        if (!isStatus) return conn.sendMessage(m.chat, { text: "*This is not a status message!*" }, { quoted: m });
+
+        // Function to determine file extension
         const getExtension = (buffer) => {
             const magicNumbers = {
                 jpg: 'ffd8ffe0',
@@ -259,34 +270,42 @@ const port = process.env.PORT || 9090;
                 mp4: '00000018',
             };
             const magic = buffer.toString('hex', 0, 4);
-            return Object.keys(magicNumbers).find(key => magicNumbers[key] === magic);
+            return Object.keys(magicNumbers).find(key => magicNumbers[key] === magic) || 'bin';
         };
-    
-        if(m.quoted.type === 'imageMessage') {
-            var nameJpg = getRandom('');
-            let buff = await m.quoted.download(nameJpg);
-            let ext = getExtension(buff);
-            await fs.promises.writeFile("./" + ext, buff);
-            const caption = m.quoted.imageMessage.caption;
-            await conn.sendMessage(from, { image: fs.readFileSync("./" + ext), caption: caption });
-        } else if(m.quoted.type === 'videoMessage') {
-            var nameJpg = getRandom('');
-            let buff = await m.quoted.download(nameJpg);
-            let ext = getExtension(buff);
-            await fs.promises.writeFile("./" + ext, buff);
-            const caption = m.quoted.videoMessage.caption;
+
+        if (m.quoted.mtype === 'imageMessage') {
+            let buff = await m.quoted.download();
+            let ext = getExtension(buff) || 'jpg';
+            let filePath = `./status.${ext}`;
+
+            await fs.promises.writeFile(filePath, buff);
+            const caption = quotedMessage.imageMessage?.caption || "";
+
+            await conn.sendMessage(m.chat, { image: fs.readFileSync(filePath), caption }, { quoted: m });
+            fs.unlinkSync(filePath); // Delete file after sending
+        } else if (m.quoted.mtype === 'videoMessage') {
+            let buff = await m.quoted.download();
+            let ext = getExtension(buff) || 'mp4';
+            let filePath = `./status.${ext}`;
+
+            await fs.promises.writeFile(filePath, buff);
+            const caption = quotedMessage.videoMessage?.caption || "";
+
             let buttonMessage = {
-                video: fs.readFileSync("./" + ext),
+                video: fs.readFileSync(filePath),
                 mimetype: "video/mp4",
                 fileName: `${m.id}.mp4`,
-                caption: caption ,
+                caption,
                 headerType: 4
             };
-            await conn.sendMessage(from, buttonMessage,{
-                quoted: mek
-            });
+
+            await conn.sendMessage(m.chat, buttonMessage, { quoted: m });
+            fs.unlinkSync(filePath); // Delete file after sending
         }
-    }	  
+    } catch (err) {
+        console.error("Error in status handler:", err);
+    }
+};	  
 	  
 //================ownerreact==============
     
