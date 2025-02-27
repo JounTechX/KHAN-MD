@@ -39,8 +39,18 @@ KHAN-MD BY JawadTechX 💜
   <a href="https://github.com/JawadYTX/KHAN-MD"><img title="Release" src="https://img.shields.io/badge/Release-beta%20v3.0-cyan.svg?style=for-the-badge&logo=appveyor" /></a>
 </p>
 
+--------------------------
+- **ANTI-DELETED 🚀**
+- **ANTI-VIEWONCE 🚀**
+- **AUTO-UPDATE 🚀**
+- **AUTO_VOICE 🚀**
+- **AUTO_STICKER 🚀**
+- **AUTO_REPLY 🚀**
+- **ALWAYS_ONLINE_OFFLINE 🚀**
+- **STATUS_REPLY_REACT 🚀**
+- © **POWERD BY JAWADTECHX**
 
-***
+---------
 
 ### 1. Fork This Repository
 
