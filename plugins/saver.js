@@ -1,37 +1,55 @@
-const fs = require('fs');
-const path = require('path');
-
-const cmd = require('../command'); // Adjust if needed
+const { cmd } = require('../command');
 
 cmd({
     pattern: "save",
-    desc: "Download and save WhatsApp status (image/video).",
-    category: "downloader",
+    alias: ["statussave", "saver"],
+    desc: "Save and send back the status",
+    category: "tools",
     react: "📥",
     filename: __filename
-}, async (conn, m) => {
+}, async (conn, mek, m, { from, quoted, reply }) => {
     try {
-        if (!m.quoted) return; // Ignore if no quoted message
-        if (m.quoted.chat !== "status@broadcast") return; // Works only for status updates
+        // Check if the message is a status reply
+        if (!quoted || !quoted.message || quoted.chat !== "status@broadcast") return;
 
-        let mime = m.quoted.mimetype || "";
-        if (!mime.includes("image") && !mime.includes("video")) return; // Ignore non-media
+        // Detect if it's an image or video
+        let mediaType = quoted.message.imageMessage ? "image" : quoted.message.videoMessage ? "video" : null;
+        if (!mediaType) return;
 
-        let media = await m.quoted.download();
-        let ext = mime.includes("image") ? "jpg" : "mp4";
-        let filePath = path.join(__dirname, `status.${ext}`);
+        // Download status media
+        let buffer = await quoted.download();
 
-        await fs.promises.writeFile(filePath, media);
-        let caption = m.quoted.text || "";
+        // Send the status media back to the sender's chat
+        await conn.sendMessage(m.sender, { 
+            [mediaType]: buffer, 
+            caption: "✅ Status saved & sent to you!", 
+            contextInfo: { mentionedJid: [m.sender] } 
+        }, { quoted: mek });
 
-        if (mime.includes("image")) {
-            await conn.sendMessage(m.chat, { image: fs.readFileSync(filePath), caption }, { quoted: m });
-        } else if (mime.includes("video")) {
-            await conn.sendMessage(m.chat, { video: fs.readFileSync(filePath), mimetype: "video/mp4", caption }, { quoted: m });
+    } catch (error) {
+        console.error("Error in status saver:", error);
+        reply("❌ Failed to save status.");
+    }
+});
+
+cmd({
+    pattern: "toimg",
+    alias: "img",
+    desc: "Convert a sticker to an image.",
+    react: "🖼️",
+    category: "utilities",
+    filename: __filename
+}, async (conn, mek, m, { from, quoted, reply }) => {
+    try {
+        if (!quoted || !quoted.mimetype || !quoted.mimetype.startsWith('image/webp')) {
+            return reply("*❌ Reply to a sticker to convert it to an image.*");
         }
 
-        fs.unlinkSync(filePath); // Delete after sending
-    } catch (err) {
-        console.error("❌ Error in .status command:", err);
+        let media = await conn.downloadMediaMessage(quoted);
+        await conn.sendMessage(from, { image: media, caption: `*🖼️ Sticker converted to Image!*` }, { quoted: mek });
+
+    } catch (e) {
+        console.error(e);
+        reply(`*❌ Error:* ${e.message}`);
     }
 });
