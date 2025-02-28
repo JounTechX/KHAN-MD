@@ -30,14 +30,12 @@ async (conn, mek, m, { from, args, q, reply, react }) => {
                      `🏛 *Capital:* ${info.capital}\n` +
                      `📍 *Continent:* ${info.continent.name} ${info.continent.emoji}\n` +
                      `📞 *Phone Code:* ${info.phoneCode}\n` +
-                     `🌐 *Google Maps:* [View Location](${info.googleMapsLink})\n` +
                      `📏 *Area:* ${info.area.squareKilometers} km² (${info.area.squareMiles} mi²)\n` +
                      `🚗 *Driving Side:* ${info.drivingSide}\n` +
                      `💱 *Currency:* ${info.currency}\n` +
                      `🔤 *Languages:* ${info.languages.native.join(", ")}\n` +
                      `🌟 *Famous For:* ${info.famousFor}\n` +
                      `🌍 *ISO Codes:* ${info.isoCode.alpha2.toUpperCase()}, ${info.isoCode.alpha3.toUpperCase()}\n` +
-                     `🛑 *Alcohol Prohibition:* ${info.alcoholProhibition}\n` +
                      `🌎 *Internet TLD:* ${info.internetTLD}\n\n` +
                      `🔗 *Neighbors:* ${neighborsText}`;
 
