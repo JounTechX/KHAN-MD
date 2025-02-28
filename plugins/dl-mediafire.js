@@ -1,68 +1,61 @@
 const { cmd } = require('../command');
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+
+// MediaFire-dl
 
 cmd({
-    pattern: "mediafire",
-    alias: ["mf", "mfire"],
-    desc: "Download APK/ZIP files from MediaFire",
-    category: "downloader",
-    react: "📂",
-    filename: __filename
-},
-async (conn, mek, m, { from, args, q, reply, react }) => {
-    try {
-        if (!q) return reply("Please provide a MediaFire link.\nExample: `.mediafire <link>`");
-
-        const apiUrl = `https://api.ryzendesu.vip/api/downloader/mediafire?url=${encodeURIComponent(q)}`;
-        const { data } = await axios.get(apiUrl);
-
-        if (!data || !data.download) {
-            await react("❌");
-            return reply("Failed to fetch the MediaFire file. Please check the link and try again.");
-        }
-
-        const fileUrl = data.download;
-        const fileName = data.filename || "Unknown_File";
-        const fileSize = data.size || "Unknown Size";
-        const fileType = data.filetype || "Unknown Type";
-        const filePath = path.join(__dirname, "..", "temp", fileName);
-
-        await react("⏳");
-        const fileResponse = await axios({
-            url: fileUrl,
-            method: 'GET',
-            responseType: 'stream'
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        fileResponse.data.pipe(writer);
-
-        await new Promise((resolve, reject) => {
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
-
-        const caption = `📂 *MediaFire File Downloadeder* 📂\n\n` +
-                        `📌 *File Name:* ${fileName}\n` +
-                        `📏 *Size:* ${fileSize}\n` +
-                        `📄 *Type:* ${fileType}\n\n` +
-                        `🔹 *Powered By KHAN MD*`;
-
-        await conn.sendMessage(from, {
-            document: { url: filePath },
-            mimetype: "application/octet-stream",
-            fileName: fileName,
-            caption: caption
-        }, { quoted: mek });
-
-        fs.unlinkSync(filePath); // Delete the file after sending
-        await react("✅");
-
-    } catch (e) {
-        console.error("Error in MediaFire downloader command:", e);
-        await react("❌");
-        reply("An error occurred while downloading the file.");
+  pattern: "mediafire",
+  alias: ["mfire"],
+  desc: "To download MediaFire files.",
+  react: "🎥",
+  category: "download",
+  filename: __filename
+}, async (conn, m, store, {
+  from,
+  quoted,
+  q,
+  reply
+}) => {
+  try {
+    if (!q) {
+      return reply("❌ Please provide a valid MediaFire link.");
     }
+
+    await conn.sendMessage(from, {
+      react: { text: "⏳", key: m.key }
+    });
+
+    const response = await axios.get(`https://www.dark-yasiya-api.site/download/mfire?url=${q}`);
+    const data = response.data;
+
+    if (!data || !data.status || !data.result || !data.result.dl_link) {
+      return reply("⚠️ Failed to fetch MediaFire download link. Ensure the link is valid and public.");
+    }
+
+    const { dl_link, fileName, fileType } = data.result;
+    const file_name = fileName || "mediafire_download";
+    const mime_type = fileType || "application/octet-stream";
+
+    await conn.sendMessage(from, {
+      react: { text: "⬆️", key: m.key }
+    });
+
+    const caption = `╭━━━〔 *MEDIAFIRE DOWNLOADER* 〕━━━⊷\n`
+      + `┃▸ *File Name:* ${file_name}\n`
+      + `┃▸ *File Type:* ${mime_type}\n`
+      + `╰━━━⪼\n\n`
+      + `📥 *Downloading your file...*`;
+
+    await conn.sendMessage(from, {
+      document: { url: dl_link },
+      mimetype: mime_type,
+      fileName: file_name,
+      caption: caption
+    }, { quoted: m });
+
+  } catch (error) {
+    console.error("Error:", error);
+    reply("❌ An error occurred while processing your request. Please try again.");
+  }
 });
+        
