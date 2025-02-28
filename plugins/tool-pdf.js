@@ -1,6 +1,5 @@
 const { cmd } = require('../command');
 const PDFDocument = require('pdfkit');
-const { Buffer } = require('buffer');
 
 cmd({
     pattern: "topdf",
@@ -9,39 +8,33 @@ cmd({
     react: "📄",
     category: "utilities",
     filename: __filename
-},
-async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+}, async (conn, mek, m, { from, quoted, args, q, reply }) => {
     try {
-        if (!q) return reply("Please provide the text you want to convert to PDF. *Eg* `.topdf` *Pakistan ZindaBad 🇵🇰*");
+        if (!q) return reply("*❌ Please provide text to convert into a PDF.*");
 
-        // Create a new PDF document
         const doc = new PDFDocument();
         let buffers = [];
-        doc.on('data', buffers.push.bind(buffers));
+
+        doc.on('data', (chunk) => buffers.push(chunk));
         doc.on('end', async () => {
             const pdfData = Buffer.concat(buffers);
 
-            // Send the PDF file
             await conn.sendMessage(from, {
                 document: pdfData,
                 mimetype: 'application/pdf',
                 fileName: 'JawadTech.pdf',
-                caption: `
-*📄 PDF created successully!*
-
-> © Created By JawadTechX 💜`
+                caption: `*📄 PDF created successfully!*\n\n> © Created By JawadTechX 💜`
             }, { quoted: mek });
         });
 
-        // Add text to the PDF
-        doc.text(q);
+        // Add user-provided text to the PDF
+        doc.fontSize(14).text(q, { align: 'left' });
 
-        // Finalize the PDF and end the stream
+        // Finalize the PDF
         doc.end();
 
     } catch (e) {
         console.error(e);
-        reply(`Error: ${e.message}`);
+        reply(`*❌ Error:* ${e.message}`);
     }
 });
-                      
