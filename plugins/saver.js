@@ -4,7 +4,7 @@ const path = require('path');
 const cmd = require('../command'); // Adjust if needed
 
 cmd({
-    pattern: "status",
+    pattern: "save",
     desc: "Download and save WhatsApp status (image/video).",
     category: "downloader",
     react: "📥",
