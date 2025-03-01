@@ -1,26 +1,29 @@
 const { cmd } = require('../command');
 const config = require('../config');
 
-// Universal regex to detect any type of link
+// Stronger regex for ALL links (detects even text-based links)
 const urlPattern = /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,}){1,3}(?:\/[^\s]*)?/gi;
 
-// Message queue to process link deletions one by one
+// Message queue for handling deletions one by one
 const deleteQueue = [];
 
-// Function to process the queue
+// Function to delete messages with retry logic
 async function processQueue(conn, from) {
   while (deleteQueue.length > 0) {
-    const m = deleteQueue.shift(); // Get the first message in the queue
+    const { message, retries } = deleteQueue.shift(); // Get first message
 
     try {
-      await conn.sendMessage(from, { delete: m.key });
-      console.log(`✅ Deleted message from ${m.sender}`);
+      await conn.sendMessage(from, { delete: message.key });
+      console.log(`✅ Deleted message from ${message.sender}`);
     } catch (error) {
-      console.error(`❌ Failed to delete message, retrying...`, error);
-      deleteQueue.push(m); // Re-add to queue for another attempt
+      console.error(`❌ Failed to delete, retrying... (${retries})`, error);
+      
+      if (retries < 3) { // Retry max 3 times
+        deleteQueue.push({ message, retries: retries + 1 });
+      }
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Controlled delay (1.5 seconds per delete)
+    await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay per delete (prevents WhatsApp limits)
   }
 }
 
@@ -35,17 +38,17 @@ cmd({
   isBotAdmins
 }) => {
   try {
-    // Ensure bot is an admin & sender is NOT an admin
+    // Ensure bot is admin & sender is NOT admin
     if (!isGroup || !isBotAdmins || isAdmins) {
-      return; // Exit if bot is not admin or sender is admin
+      return;
     }
 
     // Check if message contains a link
     if (urlPattern.test(body) && config.DELETE_LINKS === 'true') {
-      deleteQueue.push(m); // Add message to queue
+      deleteQueue.push({ message: m, retries: 0 }); // Add to queue with 0 retries
 
       if (deleteQueue.length === 1) {
-        processQueue(conn, from); // Start processing only if queue was empty
+        processQueue(conn, from); // Start processing if queue was empty
       }
     }
   } catch (error) {
