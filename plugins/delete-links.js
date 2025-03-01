@@ -1,8 +1,28 @@
 const { cmd } = require('../command');
 const config = require('../config');
 
-// Ultimate regex to detect all links, even text-based (example.com)
+// Universal regex to detect any type of link
 const urlPattern = /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,}){1,3}(?:\/[^\s]*)?/gi;
+
+// Message queue to process link deletions one by one
+const deleteQueue = [];
+
+// Function to process the queue
+async function processQueue(conn, from) {
+  while (deleteQueue.length > 0) {
+    const m = deleteQueue.shift(); // Get the first message in the queue
+
+    try {
+      await conn.sendMessage(from, { delete: m.key });
+      console.log(`✅ Deleted message from ${m.sender}`);
+    } catch (error) {
+      console.error(`❌ Failed to delete message, retrying...`, error);
+      deleteQueue.push(m); // Re-add to queue for another attempt
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1500)); // Controlled delay (1.5 seconds per delete)
+  }
+}
 
 cmd({
   on: 'body'
@@ -22,19 +42,10 @@ cmd({
 
     // Check if message contains a link
     if (urlPattern.test(body) && config.DELETE_LINKS === 'true') {
-      let deleted = false;
-      let attempt = 0;
+      deleteQueue.push(m); // Add message to queue
 
-      // Exponential backoff retry mechanism (ensures deletion)
-      while (!deleted && attempt < 5) {
-        try {
-          await conn.sendMessage(from, { delete: m.key });
-          deleted = true; // Mark as deleted to prevent extra retries
-        } catch (err) {
-          console.error(`Attempt ${attempt + 1}: Failed to delete, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 200)); // 200ms, 400ms, 800ms, etc.
-        }
-        attempt++;
+      if (deleteQueue.length === 1) {
+        processQueue(conn, from); // Start processing only if queue was empty
       }
     }
   } catch (error) {
