@@ -1,30 +1,35 @@
 const { cmd } = require('../command');
 const config = require('../config');
 
-// Stronger regex for ALL links (detects even text-based links)
+// Detects all types of links
 const urlPattern = /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,}){1,3}(?:\/[^\s]*)?/gi;
 
-// Message queue for handling deletions one by one
 const deleteQueue = [];
+let isProcessing = false;
 
-// Function to delete messages with retry logic
+// Function to process deletion queue
 async function processQueue(conn, from) {
+  if (isProcessing) return;
+  isProcessing = true;
+
   while (deleteQueue.length > 0) {
-    const { message, retries } = deleteQueue.shift(); // Get first message
+    const { message, retries } = deleteQueue.shift();
 
     try {
       await conn.sendMessage(from, { delete: message.key });
-      console.log(`✅ Deleted message from ${message.sender}`);
+      console.log(`✅ Deleted: ${message.sender}`);
     } catch (error) {
-      console.error(`❌ Failed to delete, retrying... (${retries})`, error);
-      
-      if (retries < 3) { // Retry max 3 times
+      console.error(`❌ Deletion failed, retrying (${retries})...`, error);
+
+      if (retries < 5) { // Retry up to 5 times
         deleteQueue.push({ message, retries: retries + 1 });
       }
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay per delete (prevents WhatsApp limits)
+    await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 1500) + 500)); // Random delay (500-2000ms)
   }
+
+  isProcessing = false;
 }
 
 cmd({
@@ -38,20 +43,18 @@ cmd({
   isBotAdmins
 }) => {
   try {
-    // Ensure bot is admin & sender is NOT admin
     if (!isGroup || !isBotAdmins || isAdmins) {
       return;
     }
 
-    // Check if message contains a link
     if (urlPattern.test(body) && config.DELETE_LINKS === 'true') {
-      deleteQueue.push({ message: m, retries: 0 }); // Add to queue with 0 retries
+      deleteQueue.push({ message: m, retries: 0 });
 
-      if (deleteQueue.length === 1) {
-        processQueue(conn, from); // Start processing if queue was empty
+      if (!isProcessing) {
+        processQueue(conn, from);
       }
     }
   } catch (error) {
-    console.error('Critical error in link deletion:', error);
+    console.error('Error in link deletion:', error);
   }
 });
