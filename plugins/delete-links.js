@@ -1,29 +1,8 @@
 const { cmd } = require('../command');
 const config = require('../config');
 
-const linkPatterns = [
-  /https?:\/\/(?:chat\.whatsapp\.com|wa\.me)\/\S+/gi,
-  /^https?:\/\/(www\.)?whatsapp\.com\/channel\/([a-zA-Z0-9_-]+)$/,
-  /wa\.me\/\S+/gi,
-  /https?:\/\/(?:t\.me|telegram\.me)\/\S+/gi,
-  /https?:\/\/(?:www\.)?youtube\.com\/\S+/gi,
-  /https?:\/\/youtu\.be\/\S+/gi,
-  /https?:\/\/(?:www\.)?facebook\.com\/\S+/gi,
-  /https?:\/\/fb\.me\/\S+/gi,
-  /https?:\/\/(?:www\.)?instagram\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?twitter\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?tiktok\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?linkedin\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?snapchat\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?pinterest\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?reddit\.com\/\S+/gi,
-  /https?:\/\/ngl\/\S+/gi,
-  /https?:\/\/(?:www\.)?discord\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?twitch\.tv\/\S+/gi,
-  /https?:\/\/(?:www\.)?vimeo\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?dailymotion\.com\/\S+/gi,
-  /https?:\/\/(?:www\.)?medium\.com\/\S+/gi
-];
+// Advanced regex to detect ALL types of links, even plain text ones (example.com)
+const urlPattern = /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,}){1,3}(?:\/[^\s]*)?/gi;
 
 cmd({
   on: 'body'
@@ -36,16 +15,18 @@ cmd({
   isBotAdmins
 }) => {
   try {
+    // Ignore if not a group, admin, or bot is not an admin
     if (!isGroup || isAdmins || !isBotAdmins) {
       return;
     }
 
-    const containsLink = linkPatterns.some(pattern => pattern.test(body));
-
-    if (containsLink && config.DELETE_LINKS === 'true') {
-      await conn.sendMessage(from, { delete: m.key }, { quoted: m });
+    // Check if message contains a link
+    if (urlPattern.test(body) && config.DELETE_LINKS === 'true') {
+      for (let i = 0; i < 5; i++) {  // Retry up to 5 times to ensure deletion
+        await conn.sendMessage(from, { delete: m.key });
+      }
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error in link deletion:', error);
   }
 });
