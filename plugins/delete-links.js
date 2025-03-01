@@ -1,7 +1,7 @@
 const { cmd } = require('../command');
 const config = require('../config');
 
-// Universal regex to detect all types of links, even plain text (example.com)
+// Ultimate regex to detect all links, even text-based (example.com)
 const urlPattern = /\b(?:https?:\/\/|www\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z]{2,}){1,3}(?:\/[^\s]*)?/gi;
 
 cmd({
@@ -15,26 +15,29 @@ cmd({
   isBotAdmins
 }) => {
   try {
-    // Ensure the bot is an admin and the sender is NOT an admin
+    // Ensure bot is an admin & sender is NOT an admin
     if (!isGroup || !isBotAdmins || isAdmins) {
-      return; // Exit if bot is not an admin or if the sender is an admin
+      return; // Exit if bot is not admin or sender is admin
     }
 
-    // Check if the message contains a link
+    // Check if message contains a link
     if (urlPattern.test(body) && config.DELETE_LINKS === 'true') {
       let deleted = false;
+      let attempt = 0;
 
-      // Try deleting up to 5 times, with a slight delay between each attempt
-      for (let i = 0; i < 5; i++) {
-        setTimeout(async () => {
-          if (!deleted) {
-            await conn.sendMessage(from, { delete: m.key });
-            deleted = true; // Mark as deleted to avoid unnecessary retries
-          }
-        }, i * 500); // Small delay to ensure proper execution (500ms per attempt)
+      // Exponential backoff retry mechanism (ensures deletion)
+      while (!deleted && attempt < 5) {
+        try {
+          await conn.sendMessage(from, { delete: m.key });
+          deleted = true; // Mark as deleted to prevent extra retries
+        } catch (err) {
+          console.error(`Attempt ${attempt + 1}: Failed to delete, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 200)); // 200ms, 400ms, 800ms, etc.
+        }
+        attempt++;
       }
     }
   } catch (error) {
-    console.error('Error in link deletion:', error);
+    console.error('Critical error in link deletion:', error);
   }
 });
